@@ -13,7 +13,7 @@
 
 Read these before starting:
 - `CLAUDE.md` — Project conventions
-- `docs/ARCHITECTURE.md` — Tech stack and repo structure
+- `docs/ARCHITECTURE.md` — Tech stack, `client/` + `server/` + `app/` structure
 - `docs/DESIGN.md` — Design system and component library
 - Relevant sprint ticket in `docs/EPIC-SPRINTS/`
 
@@ -23,15 +23,15 @@ Read these before starting:
 - **TanStack React Query** for all data fetching (`useQuery`, `useMutation`)
 - **Zod** for validation (server request/response contracts)
 - **Tailwind CSS** for styling
-- **shadcn/ui** for components (source in `/components/ui/`)
+- **shadcn/ui** for components (source in `client/components/ui/`)
 - **Storybook** for component documentation
 
 ## Workflow
 
 ### 1. Research
 - Read the ticket requirements
-- Search existing components in `/components/ui/` before creating new ones
-- Check if similar patterns exist in `/app/` or `/lib/`
+- Search existing components in `client/components/ui/` before creating new ones
+- Check if similar patterns exist in `client/features/` or `client/lib/server/`
 
 ### 2. Plan
 - Identify files to create/modify
@@ -39,11 +39,13 @@ Read these before starting:
 - Wait for approval before writing code
 
 ### 3. Implement
-- Use App Router conventions (`page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`)
+- Pages in `app/(pages)/` — thin, import from `client/features/`
+- UI components in `client/features/[feature]/presentation/`
+- Hooks in `client/features/[feature]/application/`
+- API client in `client/lib/server/features/[feature]/service.ts`
 - Use shadcn/ui components — never build from scratch what shadcn/ui provides
 - All styling via Tailwind CSS — no inline styles, no CSS modules
 - TypeScript strict — no `any`, define proper interfaces
-- Descriptive variable names — no single-letter names
 
 ### 4. Verify
 - Run `npm run lint` to check for errors
@@ -53,10 +55,10 @@ Read these before starting:
 ## Rules
 
 ### Do
-- Use shadcn/ui components from `/components/ui/`
+- Use shadcn/ui components from `client/components/ui/`
 - Use Tailwind CSS utility classes for all styling
 - Use React Query (`useQuery`, `useMutation`) for all data fetching
-- Follow clean architecture layers: `presentation/` -> `application/` -> `data/` -> `model/`
+- Follow client layers: `presentation/` -> `application/` -> `client/lib/server/`
 - Create Storybook stories for new components (light + dark mode)
 - Handle loading, error, and empty states
 - Use `"use client"` directive only when needed (prefer Server Components)
@@ -66,8 +68,9 @@ Read these before starting:
 - Use `any` type — define TypeScript interfaces
 - Use `useEffect` for data fetching — use React Query instead
 - Use inline styles or CSS modules
-- Call APIs directly from presentation components — go through `application/` layer
+- Call APIs directly from presentation — go through `application/` hooks
 - Import from `server/` in client code — ever
+- Import from `server/lib/` in client code — those are server-side SDK clients
 - Create components that shadcn/ui already provides (Button, Card, Input, Table, Dialog, Badge, Skeleton)
 - Put API keys or secrets in client-side code
 - Skip loading/error states
@@ -75,25 +78,36 @@ Read these before starting:
 ## File Conventions
 
 ```
-features/
-└── [feature]/
-    ├── application/        # Use cases, business logic (no UI, no React)
-    ├── data/               # Repositories (talks to APIs, Firestore)
-    ├── model/              # Domain types and entities
-    └── presentation/       # Components, hooks, pages
-        ├── FeatureComponent.tsx
-        └── useFeatureHook.ts
+client/
+├── components/
+│   └── ui/                              # shadcn/ui base components
+├── features/
+│   └── [feature]/
+│       ├── application/                 # Hooks (React Query + regular), use cases
+│       │   ├── useFeatureData.ts        # React Query hook
+│       │   └── useFeatureState.ts       # Client-only state hook
+│       ├── model/                       # Domain types and entities
+│       │   └── featureTypes.ts
+│       └── presentation/               # UI components
+│           ├── FeatureComponent.tsx
+│           └── FeatureList.tsx
+├── lib/
+│   └── server/                          # API client layer
+│       ├── features/
+│       │   └── [feature]/
+│       │       ├── service.ts           # API calls → /api/[feature]
+│       │       └── types/index.ts       # Request/response types
+│       ├── helpers/
+│       │   └── apiRequest.ts            # Generic HTTP helper
+│       └── axios/                       # Axios instance
+├── middleware/                           # Next.js middleware
+└── stories/                             # Storybook stories
 
-components/
-├── ui/                     # shadcn/ui base components (don't modify directly)
-├── dashboard/              # Feature-specific components
-│   ├── summary-cards.tsx
-│   └── category-table.tsx
-lib/
-├── sheets.ts               # Google Sheets client
-├── claude.ts               # Claude API client
-├── gemini.ts               # Gemini API client
-└── firestore.ts            # Firestore client
+app/
+├── (pages)/
+│   └── [page]/page.tsx                  # Thin — imports from client/features/
+├── api/                                 # Thin route handlers → server/features/
+└── layout.tsx                           # Root layout (providers)
 ```
 
 ## Checklist Before Done
@@ -104,5 +118,7 @@ lib/
 - [ ] shadcn/ui components used where applicable
 - [ ] Loading and error states handled
 - [ ] Storybook story created for new components
+- [ ] No imports from `server/` in client code
+- [ ] API calls go through `client/lib/server/` — not direct `fetch()`
 - [ ] `npm run lint` passes
 - [ ] `npm run build` passes

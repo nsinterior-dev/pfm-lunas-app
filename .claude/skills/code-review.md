@@ -25,11 +25,13 @@ Read these before reviewing:
 - [ ] Descriptive variable names — no single-letter names
 
 ### 2. Clean Architecture Layers
-- [ ] Feature code in `features/[name]/{application,data,model,presentation}`
-- [ ] Presentation components never call APIs directly — use hooks that call `application/`
-- [ ] No imports from `server/` in client code
-- [ ] `application/` layer has no React or UI imports
-- [ ] `data/` returns typed domain models, never raw API responses
+- [ ] Client feature code in `client/features/[name]/{application,model,presentation}`
+- [ ] Presentation components never call APIs directly — use hooks from `application/`
+- [ ] `application/` hooks call `client/lib/server/features/[feature]/service.ts` for API access
+- [ ] No imports from `server/` in client code — ever
+- [ ] Server feature code in `server/features/[name]/{model,service,repository,parser}`
+- [ ] Services call `repository/`, never `server/lib/` directly
+- [ ] Repositories return typed domain models, never raw API responses
 - [ ] If data source changed, would zero UI components break?
 
 ### 3. Data Fetching & State
@@ -46,18 +48,22 @@ Read these before reviewing:
 ### 5. Components & Styling
 - [ ] shadcn/ui components used — no recreating Button, Card, Input, Table, Dialog, Badge, Skeleton
 - [ ] All styling via Tailwind CSS — no inline styles, no CSS modules, no `style` props
-- [ ] Components in correct location (`/components/ui/` for shared, `features/*/presentation/` for specific)
+- [ ] Components in correct location (`client/components/ui/` for shared, `client/features/*/presentation/` for specific)
 - [ ] Storybook story exists for new components (light + dark mode)
 - [ ] Lunas color tokens used (teal primary, purple accent) — no hardcoded hex
 
 ### 6. API Routes & Backend
+- [ ] Route handlers are thin — validate, delegate to service, respond
+- [ ] No business logic in route handlers — all in `service/`
+- [ ] Services call `repository/`, never `lib/` directly
+- [ ] Repositories return typed domain models, never raw API responses
 - [ ] Request/response validated with Zod schemas (`server/features/*/model/`)
-- [ ] Consistent response shape: `{ data }` or `{ error }`
+- [ ] Consistent response shape: `{ data }` or `{ error, code }`
+- [ ] Errors use `AppError` subclasses — never raw throws
 - [ ] No secrets or API keys in client-side code
-- [ ] Error handling — no raw errors exposed to client
 - [ ] Rate limits considered for external APIs
 
-### 5. Security
+### 7. Security
 - [ ] No API keys, secrets, or tokens in client bundles
 - [ ] No `dangerouslySetInnerHTML` without sanitization
 - [ ] OAuth tokens stored securely (NextAuth.js session)
@@ -65,21 +71,21 @@ Read these before reviewing:
 - [ ] No hardcoded credentials anywhere
 - [ ] `.env.local` is gitignored
 
-### 6. AI Integration
+### 8. AI Integration
 - [ ] AI calls are server-side only (API routes)
 - [ ] Manual trigger — no auto-analysis
 - [ ] Privacy disclosure included in AI response flow
 - [ ] Token usage tracked for cost control
 - [ ] Responses include at least one actionable next step
 
-### 7. Performance
+### 9. Performance
 - [ ] No unnecessary re-renders (proper dependency arrays)
 - [ ] Images optimized with `next/image`
 - [ ] No blocking API calls in render path
 - [ ] Large data sets paginated or virtualized
 - [ ] Bundle size reasonable — no unnecessary dependencies
 
-### 8. Code Quality
+### 10. Code Quality
 - [ ] No dead code or commented-out blocks
 - [ ] No TODO comments without a ticket reference
 - [ ] Functions are focused — single responsibility
@@ -131,6 +137,10 @@ End with:
 | `fetch()` in presentation layer | Presentation never calls APIs directly |
 | Import from `server/` in client | Architecture violation — layers must not cross |
 | Missing Zod validation | Server contracts must be validated at runtime |
+| Business logic in route handler | Route handlers must be thin — delegate to service |
+| Service calling `lib/` directly | Services must go through `repository/` layer |
+| Repository returning raw API response | Must map to typed domain models |
+| Raw `throw new Error()` in server | Use `AppError` subclasses with status codes |
 | `any` type usage | Defeats TypeScript's purpose, hides bugs |
 | Inline styles or `style={}` | Project uses Tailwind only |
 | Hardcoded hex colors | Use Lunas CSS variables from design tokens |

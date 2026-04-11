@@ -1,6 +1,6 @@
 # Architecture — Lunas
 
-> v2.1 — April 2026. Source: [Notion — Tech Stack & Architecture](https://www.notion.so/33f85edeff758163805ec368386dd03e)
+> v4.0 — April 2026. Source: [Notion — Tech Stack & Architecture](https://www.notion.so/33f85edeff758163805ec368386dd03e)
 
 ## Tech Stack
 
@@ -24,39 +24,70 @@
 
 ---
 
-## Folder Architecture — Feature-First (Clean Architecture)
+## Folder Architecture
+
+Three top-level directories: `client/`, `server/`, `app/`.
 
 ```
 pfm-lunas-app/
-├── features/
-│   └── [feature]/                  # e.g. dashboard, sheets, auth, analysis
-│       ├── application/            # Use cases, business logic
-│       ├── data/                   # Repositories, data sources
-│       ├── model/                  # Domain models, entities
-│       └── presentation/           # UI components, pages, view models
 │
-├── server/                         # Next.js API routes (middleware layer)
-│   ├── axios/                      # HTTP client setup, interceptors
-│   └── features/
-│       └── [feature]/
-│           ├── model/
-│           │   ├── types/          # Shared TypeScript types
-│           │   ├── response/       # API response shapes
-│           │   ├── request/        # API request shapes
-│           │   └── index.ts
-│           ├── service/            # Business logic, API calls
-│           └── index.ts
+├── client/                              # All client-side code
+│   ├── components/
+│   │   └── ui/                          # shadcn/ui base components
+│   ├── features/
+│   │   └── [feature]/                   # e.g. dashboard, sheets, auth, analysis
+│   │       ├── application/             # Hooks (React Query + regular), use cases
+│   │       ├── model/                   # Domain types, entities
+│   │       └── presentation/            # UI components, view models
+│   ├── lib/
+│   │   └── server/                      # API client layer (like wv-admin-v2's lib/wv-server)
+│   │       ├── features/
+│   │       │   └── [feature]/
+│   │       │       ├── service.ts       # API calls → /api/[feature]
+│   │       │       └── types/           # Request/response types (client-side)
+│   │       ├── helpers/
+│   │       │   └── apiRequest.ts        # Generic HTTP helper
+│   │       └── axios/                   # Axios instance, interceptors
+│   ├── middleware/                       # Next.js middleware (auth redirects, etc.)
+│   └── stories/                         # Storybook stories
 │
-├── components/
-│   └── ui/                         # shadcn/ui base components
+├── server/                              # All server-side code (wizdam-webapp pattern)
+│   ├── common/                          # Shared infrastructure
+│   │   ├── errors/                      # AppError base class + subclasses
+│   │   ├── middleware/                  # Auth checks, rate limiting
+│   │   └── validation/                 # Zod validation helpers
+│   ├── features/
+│   │   └── [feature]/
+│   │       ├── model/
+│   │       │   ├── types/               # Domain types (server-side)
+│   │       │   ├── request/             # Zod request schemas
+│   │       │   └── response/            # Zod response schemas
+│   │       ├── service/                 # Business logic, orchestration
+│   │       ├── repository/              # Data access (Firestore, Sheets API, external)
+│   │       └── parser/                  # Data transformation (optional)
+│   └── lib/                             # Server-side SDK clients
+│       ├── sheets.ts                    # Google Sheets API v4
+│       ├── claude.ts                    # Anthropic API
+│       ├── gemini.ts                    # Google Gemini API
+│       └── firestore.ts                # Firestore SDK
 │
-├── lib/                            # Shared clients
-│   ├── sheets.ts
-│   ├── claude.ts
-│   ├── gemini.ts
-│   └── firestore.ts
+├── app/                                 # Next.js App Router — pages + thin API routes
+│   ├── api/                             # API route handlers (thin — delegate to server/)
+│   │   ├── auth/[...nextauth]/route.ts
+│   │   ├── sheets/
+│   │   │   ├── detect/route.ts
+│   │   │   ├── mapping/route.ts
+│   │   │   ├── read/route.ts
+│   │   │   └── write/route.ts
+│   │   ├── analyze/route.ts
+│   │   └── user/route.ts
+│   ├── (pages)/                         # Page routes
+│   │   ├── dashboard/page.tsx
+│   │   ├── sheets/page.tsx
+│   │   └── analysis/page.tsx
+│   ├── layout.tsx                       # Root layout (QueryClientProvider, auth)
+│   └── page.tsx                         # Landing page
 │
-├── stories/                        # Storybook stories
 ├── .storybook/
 └── docs/
 ```
@@ -65,92 +96,324 @@ pfm-lunas-app/
 
 ## Layer Responsibilities
 
+### `client/` — Frontend
+
 | Layer | Responsibility |
 |-------|---------------|
-| `presentation/` | React components, pages, hooks, UI logic only |
-| `application/` | Use cases — orchestrates data + domain, no UI |
-| `data/` | Repository pattern — talks to Firestore, Sheets API, external APIs |
-| `model/` | Pure domain types and entities — no framework dependencies |
-| `server/features/[feature]/service/` | Server-side business logic called by API routes |
-| `server/features/[feature]/model/` | Request/response contracts between client and server |
-| `server/axios/` | Axios instance, interceptors, auth headers |
+| `client/features/[feature]/presentation/` | React components, UI logic only |
+| `client/features/[feature]/application/` | Hooks (React Query + regular), use cases — no UI, no React components |
+| `client/features/[feature]/model/` | Domain types and entities — no framework dependencies |
+| `client/lib/server/features/[feature]/service.ts` | API client — calls `/api/` routes (like wv-admin-v2's `lib/wv-server/`) |
+| `client/lib/server/helpers/apiRequest.ts` | Generic HTTP helper |
+| `client/lib/server/axios/` | Axios instance, interceptors |
+| `client/components/ui/` | shadcn/ui base components |
+| `client/middleware/` | Next.js middleware (auth redirects) |
 
-### Example: `analysis` feature
+### `server/` — Backend (wizdam-webapp pattern)
+
+| Layer | Responsibility | wizdam-webapp equivalent |
+|-------|---------------|--------------------------|
+| `app/api/[route]/route.ts` | Route handler — thin, delegates to service | Controller |
+| `server/features/[feature]/service/` | Business logic, orchestration | Service |
+| `server/features/[feature]/repository/` | Data access — Firestore, Sheets API, external | ModelService / ORM |
+| `server/features/[feature]/model/` | DTOs (Zod) + domain types | DTOs + Entities |
+| `server/features/[feature]/parser/` | Data transformation (optional) | — |
+| `server/common/errors/` | AppError + subclasses | WVError classes |
+| `server/common/middleware/` | Auth checks, rate limiting | Guards + Interceptors |
+| `server/common/validation/` | Zod helpers, shared pipes | Pipes |
+| `server/lib/` | SDK clients (Sheets, Claude, Gemini, Firestore) | — |
+
+### `app/` — Next.js Routing
+
+| Layer | Responsibility |
+|-------|---------------|
+| `app/api/` | Thin route handlers — validate, delegate to `server/`, respond |
+| `app/(pages)/` | Page components — import from `client/features/` |
+| `app/layout.tsx` | Root layout — QueryClientProvider, auth session |
+
+### Full request flow
 
 ```
-features/
-└── analysis/
-    ├── application/
-    │   └── triggerAnalysis.ts       # use case: sends data to AI, saves result
-    ├── data/
-    │   └── analysisRepository.ts    # reads/writes Firestore analysis history
-    ├── model/
-    │   └── analysis.ts              # AnalysisResult, AnalysisStatus types
-    └── presentation/
-        ├── AnalysisPanel.tsx        # UI component
-        ├── PromptSuggestions.tsx    # pre-built prompt chips
-        └── useAnalysis.ts          # React hook
+Client                          Server
+──────                          ──────
+presentation/
+    ↓ calls hook
+application/
+    ↓ calls API client
+client/lib/server/service.ts
+    ↓ HTTP request
+                                app/api/route.ts (thin)
+                                    ↓ Zod validates request
+                                    ↓ extracts auth
+                                server/features/service/
+                                    ↓ business logic
+                                server/features/repository/
+                                    ↓ data access
+                                server/lib/ (SDK clients)
+                                    ↓ Google Sheets, Firestore, Claude, Gemini
+                                    ↓ returns typed domain models
+                                ← { data } or { error, code }
+```
 
-server/
-└── features/
-    └── analysis/
-        ├── model/
-        │   ├── request/
-        │   │   └── AnalyzeRequest.ts    # { sheetData, prompt, model }
-        │   ├── response/
-        │   │   └── AnalyzeResponse.ts   # { result, tokensUsed, model }
-        │   └── index.ts
-        ├── service/
-        │   └── analysisService.ts   # calls Claude or Gemini, returns result
-        └── index.ts                 # Next.js API route handler
+### Error handling pattern
+
+Inspired by wizdam-webapp's `WVError` tuple pattern, adapted for Next.js:
+
+```typescript
+// server/common/errors/index.ts
+export class AppError extends Error {
+  constructor(
+    public message: string,
+    public statusCode: number,
+    public code: string,
+  ) {
+    super(message)
+  }
+}
+
+export class BadInputError extends AppError {
+  constructor(message: string) {
+    super(message, 400, 'BAD_INPUT')
+  }
+}
+
+export class NotFoundError extends AppError {
+  constructor(resource: string) {
+    super(`${resource} not found`, 404, 'NOT_FOUND')
+  }
+}
+
+export class SheetAccessError extends AppError {
+  constructor(sheetName: string) {
+    super(`Cannot access sheet: ${sheetName}`, 403, 'SHEET_ACCESS_DENIED')
+  }
+}
+
+// Usage in route.ts
+export async function GET(request: Request) {
+  try {
+    const data = await sheetsService.readSheet(params)
+    return NextResponse.json({ data })
+  } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.statusCode })
+    }
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+```
+
+---
+
+## Examples
+
+### Example: `analysis` feature (simple)
+
+```
+client/features/analysis/                       # Client
+├── application/
+│   └── useAnalysis.ts                          # React Query hook
+├── model/
+│   └── analysis.ts                             # AnalysisResult, AnalysisStatus
+└── presentation/
+    ├── AnalysisPanel.tsx
+    └── PromptSuggestions.tsx
+
+client/lib/server/features/analysis/            # API client
+├── service.ts                                  # analyzeData() → POST /api/analyze
+└── types/
+    └── index.ts                                # AnalyzePayload, AnalyzeResponse
+
+server/features/analysis/                       # Server
+├── model/
+│   ├── request/AnalyzeRequest.ts               # Zod: { sheetData, prompt, model }
+│   ├── response/AnalyzeResponse.ts             # Zod: { result, tokensUsed, model }
+│   └── index.ts
+├── repository/
+│   └── analysisHistoryRepository.ts            # Firestore CRUD
+├── service/
+│   └── analysisService.ts                      # Claude/Gemini orchestration
+└── index.ts
+
+app/api/analyze/route.ts                        # Thin handler → analysisService
+```
+
+### Example: `sheets` feature (complex — full architecture)
+
+```
+client/features/sheets/                          # Client
+├── application/
+│   ├── useSheetData.ts                          # React Query hook for dashboard reads
+│   └── useSheetConnect.ts                       # Onboarding flow hook
+├── model/
+│   ├── creditCard.ts                            # CreditCardData, Transaction
+│   ├── savings.ts                               # SavingsAccountData, SavingsEntry
+│   ├── budget.ts                                # MonthlyBudgetData, BudgetSection
+│   └── sheetMapping.ts                          # LinearSheetMapping, SectionMapping
+└── presentation/
+    ├── SheetConfirmDialog.tsx                    # Read/write permission confirmation
+    └── MappingReviewPanel.tsx                    # User reviews detected mapping
+
+client/lib/server/features/sheets/               # API client
+├── service.ts                                   # detectSheet(), readSheet(), writeSheet()
+└── types/
+    └── index.ts                                 # DetectPayload, ReadPayload, etc.
+
+server/features/sheets/                          # Server (full architecture)
+├── model/
+│   ├── types/
+│   │   ├── sheetMapping.ts                      # SheetMappingDoc, LinearMapping
+│   │   ├── cellData.ts                          # CellValue, FormattedCell, GridData
+│   │   └── parsedData.ts                        # CreditCardData, SavingsData, BudgetData
+│   ├── request/
+│   │   ├── DetectSheetRequest.ts                # Zod: { spreadsheetId }
+│   │   ├── ReadSheetRequest.ts                  # Zod: { spreadsheetId, sheetName, mappingId }
+│   │   └── WriteSheetRequest.ts                 # Zod: { spreadsheetId, sheetName, row, data }
+│   └── response/
+│       ├── DetectSheetResponse.ts               # { tabs[], suggestedMappings[] }
+│       ├── ReadSheetResponse.ts                 # { data: NormalizedSheetData }
+│       └── WriteSheetResponse.ts                # { updatedRange, rowIndex }
+├── repository/
+│   ├── sheetsApiRepository.ts                   # Google Sheets API (values.get, includeGridData)
+│   ├── mappingRepository.ts                     # Firestore CRUD for sheet_mappings
+│   └── sessionRepository.ts                     # Firestore CRUD for user_session
+├── service/
+│   ├── sheetDetectionService.ts                 # Onboarding: detect structure
+│   ├── sheetMappingService.ts                   # Claude-assisted mapping
+│   ├── sheetReadService.ts                      # Daily reads via saved mapping
+│   └── sheetWriteService.ts                     # Write-back via mapping
+├── parser/
+│   ├── linearParser.ts                          # Path A: row-by-row
+│   ├── multiSectionParser.ts                    # Path B: formatting anchors
+│   ├── installmentParser.ts                     # "11/24" → { current: 11, total: 24 }
+│   └── anchorDetector.ts                        # Bold + colored bg = section header
+└── index.ts
+
+app/api/sheets/                                  # Thin route handlers
+├── detect/route.ts                              # → sheetDetectionService
+├── mapping/route.ts                             # → sheetMappingService
+├── read/route.ts                                # → sheetReadService
+└── write/route.ts                               # → sheetWriteService
+```
+
+### Flow: `sheets` onboarding
+
+```
+client/lib/server/features/sheets/service.ts
+    ↓ POST /api/sheets/detect
+app/api/sheets/detect/route.ts (thin)
+    ↓ Zod validates → extracts auth
+server/features/sheets/service/sheetDetectionService.ts
+    ↓ calls sheetsApiRepository.getWithGridData()
+    ↓ calls anchorDetector.findSectionAnchors()
+    ↓ calls sheetMappingService.classifySections() (Claude)
+    ↓ returns suggestedMappings[]
+server/features/sheets/repository/mappingRepository.ts
+    ↓ saves confirmed mapping to Firestore
+← { data: { mappingId, sections[] } }
+```
+
+### Flow: `sheets` daily read
+
+```
+client/features/sheets/application/useSheetData.ts
+    ↓ useQuery → client/lib/server/features/sheets/service.ts
+    ↓ GET /api/sheets/read?mappingId=xxx
+app/api/sheets/read/route.ts (thin)
+    ↓ Zod validates → extracts auth
+server/features/sheets/service/sheetReadService.ts
+    ↓ mappingRepository.getMapping()
+    ↓ sheetsApiRepository.batchGetValues(UNFORMATTED_VALUE)
+    ↓ linearParser.parse() or multiSectionParser.parse()
+← { data: NormalizedSheetData }
 ```
 
 ---
 
 ## Layer Rules (Non-Negotiable)
 
-### Presentation layer
+### `client/` rules
 
-- **Only renders UI.** Receives props or calls custom hooks. That's it.
-- **Never calls an API directly.** No `fetch()`, no axios, no Firestore calls inside a component.
-- **Never imports from `server/`.** The server layer does not exist to the presentation layer.
-- **Never breaks if the data source changes.** If we switch from Google Sheets to Firestore, zero presentational components should need editing.
-- Custom hooks (`useAnalysis`, `useSheetData`) live in `presentation/` but only orchestrate — they call `application/` use cases, not APIs.
+**Presentation** (`client/features/[feature]/presentation/`):
+- Only renders UI. Receives props or calls hooks from `application/`.
+- **Never imports from `server/`.** The server directory does not exist to the client.
+- Never breaks if the data source changes.
+
+**Application** (`client/features/[feature]/application/`):
+- React Query hooks + regular hooks + use cases.
+- Calls `client/lib/server/` for API communication — never `fetch()` directly.
+- Business rules that are client-only (e.g., "if debt > savings, flag as critical").
+
+**API Client** (`client/lib/server/`):
+- Like wv-admin-v2's `lib/wv-server/` — thin API wrapper layer.
+- `service.ts` per feature: wraps HTTP calls to `/api/` routes.
+- Uses `apiRequest` helper + axios instance.
+- Returns typed responses — no business logic.
 
 ```typescript
-// WRONG — presentation calling API directly
-export function SummaryCard() {
-  const [data, setData] = useState(null)
-  useEffect(() => {
-    fetch('/api/sheets').then(r => r.json()).then(setData)
-  }, [])
-  return <div>{data?.total}</div>
+// client/lib/server/features/sheets/service.ts
+import { apiRequest } from '@/client/lib/server/helpers/apiRequest'
+import type { ReadSheetPayload, ReadSheetResponse } from './types'
+
+export const readSheetData = (payload: ReadSheetPayload) =>
+  apiRequest<ReadSheetPayload, ReadSheetResponse>('sheets/read', 'get', payload)
+
+// client/features/sheets/application/useSheetData.ts
+import { readSheetData } from '@/client/lib/server/features/sheets/service'
+
+export function useSheetData(mappingId: string) {
+  return useQuery({
+    queryKey: ['sheet-data', mappingId],
+    queryFn: () => readSheetData({ mappingId }),
+  })
 }
 
-// RIGHT — presentation receiving data via hook
-export function SummaryCard() {
-  const { totals, isLoading } = useDashboardSummary()
-  return <div>{totals?.savings}</div>
+// client/features/sheets/presentation/DashboardSummary.tsx
+export function DashboardSummary() {
+  const { data, isLoading } = useSheetData(mappingId)
+  return <div>{data?.totals?.savings}</div>
 }
 ```
 
-### Application layer
+### `server/` rules
 
-- Orchestrates: calls `data/` repositories, applies business rules, returns results.
-- No UI imports. No React. Pure TypeScript functions or classes.
-- This is where "if debt > savings, flag as critical" logic lives — not in the component.
+Adapted from wizdam-webapp's NestJS pattern for Next.js.
 
-### Data layer
+**Route handlers** (`app/api/[route]/route.ts`):
+- Thin — validate request with Zod, extract auth, delegate to `server/features/` service, return response.
+- Never contain business logic. If it's more than 10 lines, move to `service/`.
+- Always return `{ data }` or `{ error, code }`.
+- Catch `AppError` → map to HTTP status.
 
-- Talks to the outside world: Firestore, Google Sheets API, Claude, Gemini.
-- Returns typed domain models from `model/` — never raw API responses.
-- If the API response shape changes, only `data/` needs updating.
+**Services** (`server/features/[feature]/service/`):
+- All business logic lives here. Orchestrates repositories + parsers.
+- Never calls `server/lib/` directly — goes through `repository/`.
+- Throws `AppError` subclasses — never raw errors.
+- Pure TypeScript — no Next.js imports, no React.
 
-### Server layer (`server/features/`)
+**Repositories** (`server/features/[feature]/repository/`):
+- Data access only. Calls `server/lib/` SDK clients.
+- Returns typed domain models — never raw API responses.
+- One repository per data source.
 
-- Next.js API route handlers delegate here immediately.
-- `service/` contains server-side business logic (calling Claude, formatting prompts).
-- `model/request` and `model/response` are the typed contracts — validated with Zod before anything runs.
+**Parsers** (`server/features/[feature]/parser/`) — optional:
+- Pure functions that transform raw data into domain models.
+- No side effects, no API calls — just transformation logic.
+
+**Model** (`server/features/[feature]/model/`):
+- `request/` — Zod schemas for incoming requests.
+- `response/` — Zod schemas for outgoing responses.
+- `types/` — Domain types shared between service and repository.
+
+**SDK Clients** (`server/lib/`):
+- Low-level wrappers around external SDKs (Google Sheets, Firestore, Claude, Gemini).
+- Never imported from `client/` — server-only.
+
+### `app/` rules
+
+- Pages import from `client/features/` — never from `server/`.
+- API route handlers import from `server/features/` — never contain business logic.
+- `layout.tsx` wraps app in providers (QueryClientProvider, SessionProvider).
 
 ---
 
@@ -218,6 +481,9 @@ const { data, isLoading } = useQuery({
 | **Claude API** | **$100 cap (manual trigger only)** | **Only cost** |
 
 ## Key Architecture Decisions
+
+### Google Sheets IS the database
+Financial data (transactions, balances, budgets) stays in the user's Google Sheet. Firestore does NOT store financial data — it stores only sheet mappings, analysis history, user session, and recurring budget items. All reads go through a **translation layer** that maps sheet structure to normalized Lunas models. See [DATA-SCHEMA.md](DATA-SCHEMA.md) for the full translation layer spec.
 
 ### No separate backend
 Next.js API Routes handle all server-side logic for MVP 1-3. A separate backend is only considered for MVP 4 (multi-user).

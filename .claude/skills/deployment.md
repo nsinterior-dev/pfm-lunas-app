@@ -143,7 +143,7 @@ jobs:
 ## Cost Control
 
 - Cloud Run: Set max instances to 1-2 for personal use
-- Claude API: $100/month hard cap — enforce in `/lib/claude.ts`
+- Claude API: $100/month hard cap — enforce in `server/lib/claude.ts`
 - Firestore: Monitor reads in GCP console
 - Cloud Build: 120 min/day free — more than enough
 

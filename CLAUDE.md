@@ -33,26 +33,41 @@
 | Hosting | Cloud Run | Free tier — us-central1 only |
 | Secrets | Google Secret Manager | Never plain .env in prod |
 
-## Project Structure (Feature-First Clean Architecture)
+## Project Structure
+
+Three top-level directories: `client/`, `server/`, `app/`.
 
 ```
 pfm-lunas-app/
-├── features/
-│   └── [feature]/              # e.g. dashboard, sheets, auth, analysis
-│       ├── application/        # Use cases, hooks (use*.ts), React Query hooks (use*.ts)
-│       ├── data/               # Repositories, data sources
-│       ├── model/              # Domain types, entities
-│       └── presentation/       # UI components, hooks
-├── server/
-│   ├── axios/                  # HTTP client, interceptors
-│   └── features/[feature]/
-│       ├── model/{request,response}  # Typed contracts (Zod-validated)
-│       └── service/            # Server-side business logic
-├── components/ui/              # shadcn/ui base components
-├── lib/                        # Shared clients (sheets, claude, gemini, firestore)
-├── stories/                    # Storybook stories
-├── docs/
-└── .storybook/
+├── client/                     # All client-side code
+│   ├── components/ui/          # shadcn/ui base components
+│   ├── features/[feature]/     # Feature-first architecture
+│   │   ├── application/        # Hooks (React Query + regular), use cases
+│   │   ├── model/              # Domain types, entities
+│   │   └── presentation/       # UI components
+│   ├── lib/server/             # API client (like wv-admin-v2's lib/wv-server)
+│   │   ├── features/[feature]/ # service.ts + types/ per feature
+│   │   ├── helpers/            # apiRequest.ts
+│   │   └── axios/              # Axios instance
+│   ├── middleware/              # Next.js middleware
+│   └── stories/                # Storybook stories
+│
+├── server/                     # All server-side code (wizdam-webapp pattern)
+│   ├── common/                 # Errors (AppError), middleware, validation
+│   ├── features/[feature]/     # Per-feature server logic
+│   │   ├── model/{request,response,types}  # Zod schemas + domain types
+│   │   ├── service/            # Business logic, orchestration
+│   │   ├── repository/         # Data access (Firestore, Sheets API, external)
+│   │   └── parser/             # Data transformation (optional)
+│   └── lib/                    # Server-side SDK clients (sheets, claude, gemini, firestore)
+│
+├── app/                        # Next.js App Router — pages + thin API routes
+│   ├── api/                    # Thin route handlers → server/features/
+│   ├── (pages)/                # Page routes → client/features/
+│   └── layout.tsx              # Root layout (providers)
+│
+├── .storybook/
+└── docs/
 ```
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full layer rules, examples, and conventions.
@@ -66,6 +81,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full layer rules, examples,
 | [docs/DESIGN.md](docs/DESIGN.md) | Design system, Figma workflow, design principles |
 | [docs/DESIGN-TOKENS.md](docs/DESIGN-TOKENS.md) | Colors (teal + purple), category semantics, CSS variables, typography |
 | [docs/STORYBOOK.md](docs/STORYBOOK.md) | Component library plan, story conventions, addons, workflow |
+| [docs/DATA-SCHEMA.md](docs/DATA-SCHEMA.md) | Translation layer, sheet mappings, Firestore collections, API reference |
 | [docs/EPIC-SPRINTS/](docs/EPIC-SPRINTS/) | Sprint tickets (LUN-001 through LUN-028) |
 
 ## Skills
@@ -93,11 +109,16 @@ Follow the **Research -> Strategy -> Execution** lifecycle:
 ## Conventions
 
 ### Architecture (Non-Negotiable)
-- **Feature-first layers**: `presentation/` -> `application/` -> `data/` -> `model/`
-- **Presentation never calls APIs directly** — use hooks that call `application/` use cases
+- **Three directories**: `client/` (frontend), `server/` (backend), `app/` (pages + thin API routes)
+- **Client feature layers**: `presentation/` -> `application/` -> `client/lib/server/` (API client)
+- **Server feature layers**: `route.ts` (thin) -> `service/` -> `repository/` -> `server/lib/`
+- **Presentation never imports from `server/`** — the server directory does not exist to client code
 - **No `useEffect` for data fetching** — use React Query (`useQuery`, `useMutation`)
 - **Server contracts validated with Zod** — `server/features/[feature]/model/`
-- **If the data source changes, zero UI components should break**
+- **Services never call `server/lib/` directly** — go through `repository/` layer
+- **Errors use `AppError` subclasses** — never raw throws in server code
+- **Google Sheets IS the database** — financial data stays in user's Sheet, Firestore = glue only
+- **Translation layer** — all sheet reads go through saved mappings (see [DATA-SCHEMA.md](docs/DATA-SCHEMA.md))
 
 ### File Naming (Non-Negotiable)
 - **React Query hooks** — file name starts with `use` (e.g., `useTransactions.ts`, `useDashboardStats.ts`)
