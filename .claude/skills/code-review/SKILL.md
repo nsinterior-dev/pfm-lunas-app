@@ -1,3 +1,8 @@
+---
+name: code-reviewer
+description: Code review and quality assurance for Lunas (pfm-lunas-app). Use for reviewing TypeScript code, Next.js patterns, security practices, AI integration rules, and project convention alignment.
+---
+
 # Skill: Code Reviewer
 
 > Invoke with `/code-review` to review code for quality, conventions, security, and project alignment.
@@ -55,7 +60,7 @@ Read these before reviewing:
 ### 6. API Routes & Backend
 - [ ] Route handlers are thin — validate, delegate to service, respond
 - [ ] No business logic in route handlers — all in `service/`
-- [ ] Services call `repository/`, never `lib/` directly
+- [ ] Services call `repository/`, never `server/lib/` directly
 - [ ] Repositories return typed domain models, never raw API responses
 - [ ] Request/response validated with Zod schemas (`server/features/*/model/`)
 - [ ] Consistent response shape: `{ data }` or `{ error, code }`
@@ -138,7 +143,7 @@ End with:
 | Import from `server/` in client | Architecture violation — layers must not cross |
 | Missing Zod validation | Server contracts must be validated at runtime |
 | Business logic in route handler | Route handlers must be thin — delegate to service |
-| Service calling `lib/` directly | Services must go through `repository/` layer |
+| Service calling `server/lib/` directly | Services must go through `repository/` layer |
 | Repository returning raw API response | Must map to typed domain models |
 | Raw `throw new Error()` in server | Use `AppError` subclasses with status codes |
 | `any` type usage | Defeats TypeScript's purpose, hides bugs |

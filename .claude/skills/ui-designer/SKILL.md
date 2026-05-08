@@ -1,3 +1,8 @@
+---
+name: ui-designer
+description: Visual and UI design for Lunas (pfm-lunas-app). Use for translating Figma designs to code, making visual design decisions, layout composition, and refining shadcn/ui component variants with Tailwind CSS.
+---
+
 # Skill: UI Designer
 
 > Invoke with `/ui-designer` for visual design decisions, component styling, layout composition, and design-to-code translation.
@@ -13,12 +18,14 @@
 ## Context
 
 Read these before starting:
+- `docs/DESIGN-TOKENS.md` — Brand colors (Teal/Purple), typography, and semantic tokens
 - `docs/DESIGN.md` — Design system, principles, Figma workflow
 - `docs/ARCHITECTURE.md` — Component structure
 - `CLAUDE.md` — Project conventions
 
 ## Design System
 
+- **Brand Colors**: Teal (Primary/Growth) and Purple (AI/Accent)
 - **Component library**: shadcn/ui (Tailwind-native, Radix UI primitives)
 - **Styling**: Tailwind CSS only — no inline styles, no CSS modules
 - **Design tool**: Figma + shadcn/ui Figma Kit
@@ -51,15 +58,20 @@ Read these before starting:
 - Card-based sections for data categories
 
 ### 4. Visual Decisions
-When making color, spacing, or typography choices:
+When making color, spacing, or typography choices, always reference `docs/DESIGN-TOKENS.md`.
 
-**Colors** — Use Tailwind's semantic color system via `tailwind.config.ts`:
-- Primary actions: `primary`
-- Destructive actions: `destructive`
-- Muted/secondary: `muted`, `secondary`
-- Backgrounds: `background`, `card`
-- Borders: `border`
-- Text: `foreground`, `muted-foreground`
+**Colors** — Use Tailwind's semantic color system mapped in `tailwind.config.ts`:
+- **Primary (Teal)**: `#1D9E75`. Used for main actions and growth.
+- **Accent (Purple)**: `#7F77DD`. Used for AI features (Claude/Gemini).
+- **Financial Semantics**:
+    - Debt: Red (`#E24B4A`)
+    - Savings: Teal (`#1D9E75`)
+    - Investments: Purple (`#7F77DD`)
+    - Wants: Amber (`#BA7517`)
+    - Needs: Gray (`#888780`)
+- **Neutral Backgrounds**: Warmer neutrals (`#F8F7F4`) to feel human.
+
+Use Tailwind semantic tokens for general UI: `primary`, `destructive`, `muted`, `secondary`, `background`, `card`, `border`, `foreground`, `muted-foreground`.
 
 **Typography** — Use Tailwind text utilities:
 - Page titles: `text-2xl font-bold`

@@ -1,3 +1,8 @@
+---
+name: deployment-engineer
+description: DevOps and deployment for Lunas (pfm-lunas-app). Use for Docker configuration, Cloud Run deployment, GitHub Actions CI/CD, and Google Secret Manager configuration in us-central1.
+---
+
 # Skill: Deployment Engineer
 
 > Invoke with `/deployment` for Docker, Cloud Run, CI/CD, secrets management, and production infrastructure.

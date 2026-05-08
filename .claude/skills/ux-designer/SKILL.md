@@ -1,3 +1,8 @@
+---
+name: ux-designer
+description: User experience design for Lunas (pfm-lunas-app). Use for mapping user flows, defining interaction patterns, information architecture, error handling UX, and writing supportive UI microcopy.
+---
+
 # Skill: UX Designer
 
 > Invoke with `/ux-designer` for user flow design, interaction patterns, information architecture, and usability decisions.
@@ -13,6 +18,7 @@
 ## Context
 
 Read these before starting:
+- `docs/DESIGN-TOKENS.md` — Brand colors and semantic financial category colors
 - `docs/DESIGN.md` — Design principles
 - `docs/PRODUCT-MANAGEMENT/` — MVP features and success criteria
 - Relevant sprint ticket in `docs/EPIC-SPRINTS/`

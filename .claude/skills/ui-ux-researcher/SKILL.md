@@ -1,3 +1,8 @@
+---
+name: ui-ux-researcher
+description: UI/UX research for Lunas (pfm-lunas-app). Use for competitive analysis, heuristic evaluation, accessibility audits, and design pattern research for financial applications.
+---
+
 # Skill: UI/UX Researcher
 
 > Invoke with `/ui-ux-researcher` for competitive analysis, best practice research, usability heuristics evaluation, and design pattern recommendations.
@@ -6,6 +11,8 @@
 
 - Researching how other finance apps solve a specific UX problem
 - Evaluating design patterns for a feature (e.g., dashboard layout, data tables, AI chat)
+- Researching AI-driven financial insights and conversational AI patterns
+- Analyzing best practices for data visualization in high-density dashboards
 - Conducting heuristic evaluation of existing screens
 - Recommending accessibility improvements
 - Analyzing best practices for financial app UX
@@ -105,9 +112,9 @@ Format findings as:
 |--------|-------------------|
 | Sprint 1 | What do best-in-class finance app dashboards look like? |
 | Sprint 2 | How do apps handle OAuth consent UX? Sheet connection flows? |
-| Sprint 3 | Best patterns for inline data editing in tables? |
-| Sprint 4 | What makes a good financial dashboard summary card? |
-| Sprint 5 | How do AI chat interfaces present financial insights? |
+| Sprint 3 | Best practices for data visualization in dashboards with high data density? |
+| Sprint 4 | How to present complex financial data without overwhelming the user? |
+| Sprint 5 | How do AI chat interfaces present financial insights and actionable next steps? |
 
 ## Checklist Before Done
 

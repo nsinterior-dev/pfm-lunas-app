@@ -1,3 +1,8 @@
+---
+name: backend-developer
+description: Backend development for Lunas (pfm-lunas-app). Use for Next.js API routes, database operations (Firestore), external service integrations (Google Sheets, Claude, Gemini), and server-side logic/authentication.
+---
+
 # Skill: Backend Developer
 
 > Invoke with `/backend` for API routes, database operations, external service integrations, and server-side logic.
@@ -22,10 +27,10 @@ Read these before starting:
 
 - **Next.js API Routes** (App Router — `route.ts` files)
 - **NextAuth.js** for Google OAuth 2.0
-- **Google Sheets API v4** via `/lib/sheets.ts`
-- **Firestore** via `/lib/firestore.ts` — **glue only** (mappings, analysis history, session)
-- **Anthropic API** (Claude) via `/lib/claude.ts`
-- **Google Gemini API** via `/lib/gemini.ts`
+- **Google Sheets API v4** via `server/lib/sheets.ts`
+- **Firestore** via `server/lib/firestore.ts` — **glue only** (mappings, analysis history, session)
+- **Anthropic API** (Claude) via `server/lib/claude.ts`
+- **Google Gemini API** via `server/lib/gemini.ts`
 - **Google Secret Manager** for secrets in production
 - **Zod** for request/response validation in `server/features/[feature]/model/`
 
@@ -81,7 +86,7 @@ server/
 
 **Services** (`service/`):
 - All business logic lives here.
-- Never calls `lib/` directly — goes through `repository/`.
+- Never calls `server/lib/` directly — goes through `repository/`.
 - Throws `AppError` subclasses — never raw errors.
 - Pure TypeScript — no Next.js imports, no React.
 
@@ -199,7 +204,7 @@ Server-side only. Never imported from `client/`. Only called from `repository/`.
 ## Rules
 
 ### Do
-- Follow the layer flow: route → service → repository → lib
+- Follow the layer flow: route → service → repository → `server/lib/`
 - Keep route handlers thin (validate + delegate + respond)
 - Validate all requests with Zod schemas
 - Throw `AppError` subclasses — never raw errors
@@ -211,7 +216,7 @@ Server-side only. Never imported from `client/`. Only called from `repository/`.
 
 ### Don't
 - Put business logic in route handlers
-- Call `lib/` clients directly from services — go through `repository/`
+- Call `server/lib/` clients directly from services — go through `repository/`
 - Expose API keys to the client — ever
 - Auto-trigger AI calls — manual trigger only (cost control)
 - Store raw secrets in `.env` for production — use Secret Manager
@@ -240,7 +245,7 @@ Server-side only. Never imported from `client/`. Only called from `repository/`.
 ## Checklist Before Done
 
 - [ ] Route handlers are thin — logic in service layer
-- [ ] Services call repositories, not `lib/` directly
+- [ ] Services call repositories, not `server/lib/` directly
 - [ ] Zod schemas defined for all request/response contracts
 - [ ] Errors use `AppError` subclasses with proper status codes
 - [ ] Consistent response shape (`{ data }` or `{ error, code }`)

@@ -1,3 +1,8 @@
+---
+name: frontend-developer
+description: Frontend development for Lunas (pfm-lunas-app). Use for Next.js App Router features, TypeScript implementation, Tailwind CSS styling, shadcn/ui components, and Storybook documentation.
+---
+
 # Skill: Frontend Developer
 
 > Invoke with `/frontend` for feature implementation, bug fixes, and refactoring in the Next.js frontend.
