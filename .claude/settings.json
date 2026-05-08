@@ -1,0 +1,40 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "type": "command",
+        "command": "cat - | curl -sf -X POST \"${LUNAS_OBSERVABILITY_URL:-http://localhost:3001}/events/pre-tool\" -H 'Content-Type: application/json' -d @- > /dev/null 2>&1 || true"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "type": "command",
+        "command": "cat - | curl -sf -X POST \"${LUNAS_OBSERVABILITY_URL:-http://localhost:3001}/events/post-tool\" -H 'Content-Type: application/json' -d @- > /dev/null 2>&1 || true"
+      }
+    ],
+    "SubagentStart": [
+      {
+        "type": "command",
+        "command": "cat - | curl -sf -X POST \"${LUNAS_OBSERVABILITY_URL:-http://localhost:3001}/events/agent-start\" -H 'Content-Type: application/json' -d @- > /dev/null 2>&1 || true"
+      }
+    ],
+    "SubagentStop": [
+      {
+        "type": "command",
+        "command": "cat - | curl -sf -X POST \"${LUNAS_OBSERVABILITY_URL:-http://localhost:3001}/events/agent-stop\" -H 'Content-Type: application/json' -d @- > /dev/null 2>&1 || true"
+      }
+    ],
+    "TaskCreated": [
+      {
+        "type": "command",
+        "command": "cat - | curl -sf -X POST \"${LUNAS_OBSERVABILITY_URL:-http://localhost:3001}/events/task-created\" -H 'Content-Type: application/json' -d @- > /dev/null 2>&1 || true"
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "type": "command",
+        "command": "cat - | curl -sf -X POST \"${LUNAS_OBSERVABILITY_URL:-http://localhost:3001}/events/task-completed\" -H 'Content-Type: application/json' -d @- > /dev/null 2>&1 || true"
+      }
+    ]
+  }
+}
