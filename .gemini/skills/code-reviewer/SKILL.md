@@ -29,34 +29,46 @@ Read these before reviewing:
 - [ ] Strict mode compliance (no implicit any, no unused vars)
 - [ ] Descriptive variable names — no single-letter names
 
-### 2. Next.js Conventions
+### 2. Clean Architecture Layers
+- [ ] Client feature code in `client/features/[name]/{application,model,presentation}`
+- [ ] Presentation components never call APIs directly — use hooks from `application/`
+- [ ] `application/` hooks call `client/lib/server/features/[feature]/service.ts` for API access
+- [ ] No imports from `server/` in client code — ever
+- [ ] Server feature code in `server/features/[name]/{model,service,repository,parser}`
+- [ ] Services call `repository/`, never `server/lib/` directly
+- [ ] Repositories return typed domain models, never raw API responses
+- [ ] If data source changed, would zero UI components break?
+
+### 3. Data Fetching & State
+- [ ] React Query (`useQuery`, `useMutation`) used for all data fetching
+- [ ] No `useEffect` for API calls — use React Query
+- [ ] No `useState` + `useEffect` + `fetch` pattern
+- [ ] `useEffect` only for subscriptions with cleanup or imperative DOM ops
+
+### 4. Next.js Conventions
 - [ ] App Router patterns used correctly (`page.tsx`, `layout.tsx`, `route.ts`)
 - [ ] Server Components by default — `"use client"` only when needed
-- [ ] API routes in `/app/api/` with proper HTTP methods
 - [ ] Loading (`loading.tsx`) and error (`error.tsx`) boundaries present
-- [ ] **No `useEffect` for data fetching — use React Query (`useQuery`, `useMutation`) instead**
 
-### 3. Architecture & Validation
-- [ ] **Feature-First Clean Architecture** followed correctly in `features/`
-- [ ] Layers respected: `presentation/`, `application/`, `data/`, `model/`
-- [ ] **Zod schemas present** in `server/features/[feature]/model/` for all requests/responses
-- [ ] Server-side validation with Zod implemented in API routes
-- [ ] No direct client calls to external APIs — always go through internal API routes
-
-### 4. Components & Styling
-- [ ] shadcn/ui components used — no recreating Button, Card, Input, Table, Dialog, Badge
+### 5. Components & Styling
+- [ ] shadcn/ui components used — no recreating Button, Card, Input, Table, Dialog, Badge, Skeleton
 - [ ] All styling via Tailwind CSS — no inline styles, no CSS modules, no `style` props
-- [ ] Components in correct location (`features/[feature]/presentation/components/`)
-- [ ] Storybook story exists for new components
+- [ ] Components in correct location (`client/components/ui/` for shared, `client/features/*/presentation/` for specific)
+- [ ] Storybook story exists for new components (light + dark mode)
+- [ ] Lunas color tokens used (teal primary, purple accent) — no hardcoded hex
 
-### 5. API Routes & Backend
-- [ ] Request inputs validated with Zod
-- [ ] Consistent response shape: `{ data }` or `{ error }`
+### 6. API Routes & Backend
+- [ ] Route handlers are thin — validate, delegate to service, respond
+- [ ] No business logic in route handlers — all in `service/`
+- [ ] Services call `repository/`, never `server/lib/` directly
+- [ ] Repositories return typed domain models, never raw API responses
+- [ ] Request/response validated with Zod schemas (`server/features/*/model/`)
+- [ ] Consistent response shape: `{ data }` or `{ error, code }`
+- [ ] Errors use `AppError` subclasses — never raw throws
 - [ ] No secrets or API keys in client-side code
-- [ ] Error handling — no raw errors exposed to client
 - [ ] Rate limits considered for external APIs
 
-### 6. Security
+### 7. Security
 - [ ] No API keys, secrets, or tokens in client bundles
 - [ ] No `dangerouslySetInnerHTML` without sanitization
 - [ ] OAuth tokens stored securely (NextAuth.js session)
@@ -64,21 +76,21 @@ Read these before reviewing:
 - [ ] No hardcoded credentials anywhere
 - [ ] `.env.local` is gitignored
 
-### 7. AI Integration
+### 8. AI Integration
 - [ ] AI calls are server-side only (API routes)
 - [ ] Manual trigger — no auto-analysis
 - [ ] Privacy disclosure included in AI response flow
 - [ ] Token usage tracked for cost control
 - [ ] Responses include at least one actionable next step
 
-### 8. Performance
+### 9. Performance
 - [ ] No unnecessary re-renders (proper dependency arrays)
 - [ ] Images optimized with `next/image`
 - [ ] No blocking API calls in render path
 - [ ] Large data sets paginated or virtualized
 - [ ] Bundle size reasonable — no unnecessary dependencies
 
-### 9. Code Quality
+### 10. Code Quality
 - [ ] No dead code or commented-out blocks
 - [ ] No TODO comments without a ticket reference
 - [ ] Functions are focused — single responsibility
@@ -126,12 +138,20 @@ End with:
 
 | Issue | Why It Matters |
 |-------|---------------|
+| `useEffect` for data fetching | Must use React Query — no exceptions |
+| `fetch()` in presentation layer | Presentation never calls APIs directly |
+| Import from `server/` in client | Architecture violation — layers must not cross |
+| Missing Zod validation | Server contracts must be validated at runtime |
+| Business logic in route handler | Route handlers must be thin — delegate to service |
+| Service calling `server/lib/` directly | Services must go through `repository/` layer |
+| Repository returning raw API response | Must map to typed domain models |
+| Raw `throw new Error()` in server | Use `AppError` subclasses with status codes |
 | `any` type usage | Defeats TypeScript's purpose, hides bugs |
 | Inline styles or `style={}` | Project uses Tailwind only |
+| Hardcoded hex colors | Use Lunas CSS variables from design tokens |
 | Client-side API keys | Security vulnerability |
 | Missing loading/error states | Poor UX, blank screens |
 | AI auto-trigger | Cost explosion risk |
-| Hardcoded strings | Should be in constants or config |
 | Missing input validation | Security + data integrity |
 | `console.log` left in | Clean up before merge |
 | Unused imports | Build warnings, code noise |
