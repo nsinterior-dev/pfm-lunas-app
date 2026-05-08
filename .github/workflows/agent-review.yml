@@ -8,7 +8,6 @@ name: Agent Code Review
 # Anthropic API key. Switched to Gemini API (free tier: 15 RPM, 1M TPM) to
 # avoid CI costs. The trade-off: we lose the action's built-in PR context
 # injection and must handle diff extraction + comment posting ourselves.
-# The review quality is good for catching structural/convention violations.
 #
 # ALTERNATIVE CONSIDERED:
 # CodeRabbit (free GitHub App for public repos) — zero config but less
@@ -33,113 +32,86 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get PR diff
-        id: diff
-        run: |
-          DIFF=$(git diff ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }} -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.json' '*.yml' '*.yaml' '*.md' | head -c 900000)
-          echo "has_diff=true" >> "$GITHUB_OUTPUT"
-          echo "$DIFF" > /tmp/pr-diff.txt
-
-      - name: Get review checklist
-        id: checklist
-        run: |
-          if [ -f ".claude/skills/code-review/SKILL.md" ]; then
-            cat .claude/skills/code-review/SKILL.md > /tmp/checklist.txt
-          else
-            echo "No checklist found" > /tmp/checklist.txt
-          fi
-
       - name: Run Gemini review
-        if: steps.diff.outputs.has_diff == 'true'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          DIFF=$(cat /tmp/pr-diff.txt)
-          CHECKLIST=$(cat /tmp/checklist.txt)
+          python3 << 'PYEOF'
+          import json, subprocess, urllib.request, os
 
-          # Build the prompt
-          PROMPT=$(cat <<'PROMPT_END'
-          You are a code reviewer for the Lunas project (Next.js + TypeScript + Tailwind + React Query).
+          base = os.environ["BASE_SHA"]
+          head = os.environ["HEAD_SHA"]
+          api_key = os.environ["GEMINI_API_KEY"]
 
-          Review the PR diff below against this checklist:
+          # Get diff (code files only, truncate to 900k chars)
+          diff = subprocess.run(
+              ["git", "diff", f"{base}...{head}", "--",
+               "*.ts", "*.tsx", "*.js", "*.jsx", "*.json", "*.yml", "*.yaml"],
+              capture_output=True, text=True
+          ).stdout[:900000]
 
-          ---CHECKLIST---
-          PLACEHOLDER_CHECKLIST
-          ---END CHECKLIST---
+          if not diff.strip():
+              print("No code diff found, skipping review.")
+              with open("/tmp/review-output.txt", "w") as f:
+                  f.write("No code changes to review.\n\n**Verdict: APPROVE**")
+              exit(0)
 
-          ---DIFF---
-          PLACEHOLDER_DIFF
-          ---END DIFF---
+          # Read checklist
+          checklist = ""
+          try:
+              with open(".claude/skills/code-review/SKILL.md") as f:
+                  checklist = f.read()
+          except FileNotFoundError:
+              checklist = "No checklist found."
 
-          ## Rules
-          - Only comment on actual issues found in the diff
-          - Use severity tiers: Blocker, Major, Minor, Nit
-          - For each finding: **[Severity]** file:line — Description. Problem: ... Fix: ...
-          - End with a summary: counts per severity + verdict
-          - Verdict: REQUEST CHANGES if any Blocker or Major, APPROVE otherwise
-          - If the diff is only documentation/config with no code issues, just APPROVE
-          - Be concise. No filler.
-          PROMPT_END
+          # Build prompt
+          prompt = f"""You are a code reviewer for the Lunas project (Next.js + TypeScript + Tailwind + React Query).
 
-          # Replace placeholders
-          PROMPT=$(echo "$PROMPT" | sed "s|PLACEHOLDER_CHECKLIST|$CHECKLIST|")
-          PROMPT=$(echo "$PROMPT" | sed "s|PLACEHOLDER_DIFF|$DIFF|")
-
-          # Call Gemini API
-          RESPONSE=$(curl -sf -X POST \
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}" \
-            -H 'Content-Type: application/json' \
-            -d "$(python3 -c "
-          import json, sys
-          prompt = open('/dev/stdin').read()
-          print(json.dumps({
-              'contents': [{'parts': [{'text': prompt}]}],
-              'generationConfig': {'temperature': 0.1, 'maxOutputTokens': 8192}
-          }))
-          " <<< "Review this PR diff against the Lunas code review checklist.
+          Review this PR diff against the checklist below.
 
           CHECKLIST:
-          $(cat /tmp/checklist.txt)
+          {checklist}
 
           DIFF:
-          $(cat /tmp/pr-diff.txt)
+          {diff}
 
           RULES:
-          - Only comment on actual issues in the diff
+          - Only comment on actual issues found in the diff
           - Severity tiers: Blocker, Major, Minor, Nit
-          - Format: **[Severity]** file:line — Description. Problem: ... Fix: ...
-          - End with summary: counts per severity + verdict
+          - Format each finding as: **[Severity]** file:line - Description. Problem: ... Fix: ...
+          - End with a summary: counts per severity + verdict
           - Verdict: REQUEST CHANGES if any Blocker or Major, APPROVE otherwise
-          - If only docs/config with no issues, just APPROVE
-          - Be concise")" 2>&1)
+          - If only docs/config with no code issues, just APPROVE with a brief note
+          - Be concise. No filler."""
 
-          # Extract the text response
-          REVIEW=$(echo "$RESPONSE" | python3 -c "
-          import json, sys
+          # Call Gemini API
+          url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+          payload = json.dumps({
+              "contents": [{"parts": [{"text": prompt}]}],
+              "generationConfig": {"temperature": 0.1, "maxOutputTokens": 8192}
+          }).encode()
+
+          req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
           try:
-              data = json.load(sys.stdin)
-              text = data['candidates'][0]['content']['parts'][0]['text']
-              print(text)
+              with urllib.request.urlopen(req, timeout=120) as resp:
+                  data = json.loads(resp.read())
+                  review = data["candidates"][0]["content"]["parts"][0]["text"]
           except Exception as e:
-              print(f'Error parsing Gemini response: {e}')
-              print('Raw response:')
-              print(json.dumps(data, indent=2)[:2000] if 'data' in dir() else 'No response')
-          ")
+              review = f"Gemini review failed: {e}"
 
-          echo "$REVIEW" > /tmp/review-output.txt
+          with open("/tmp/review-output.txt", "w") as f:
+              f.write(review)
+
+          print(review)
+          PYEOF
 
       - name: Post review comment
-        if: steps.diff.outputs.has_diff == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           REVIEW=$(cat /tmp/review-output.txt)
-
-          # Post as PR comment
-          gh pr comment ${{ github.event.pull_request.number }} \
-            --body "## 🤖 Agent Code Review (Gemini)
-
-          $REVIEW
-
-          ---
-          *Automated review via Gemini 2.0 Flash against [code-review checklist](.claude/skills/code-review/SKILL.md)*"
+          BODY=$(printf '## 🤖 Agent Code Review (Gemini)\n\n%s\n\n---\n*Automated review via Gemini 2.0 Flash against [code-review checklist](.claude/skills/code-review/SKILL.md)*' "$REVIEW")
+          gh pr comment "$PR_NUMBER" --body "$BODY"
