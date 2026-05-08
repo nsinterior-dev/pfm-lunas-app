@@ -105,6 +105,17 @@ When invoked, read open GitHub issues. For each:
 4. Present to user: "Here's everything I know. You drive from here."
 5. STOP — do not dispatch planner or developer
 
+### Branch & PR Rules
+
+**If you are already on `development` or `main`:** commit directly. No PR needed. Still run the code-reviewer agent locally before committing, but skip PR creation and CI review.
+
+**If you are on a feature/fix branch:** create a PR targeting `development`. The CI workflow runs the code-reviewer automatically. Human merges.
+
+In practice:
+- Chores and low-UCE fixes on `development` → commit directly after local review
+- Worktree-isolated work → PR to `development`
+- Release merges → PR from `development` to `main` (human only)
+
 ### 3. Chore Lane
 
 Issues classified as `chore` skip investigator and planner regardless of UCE score:

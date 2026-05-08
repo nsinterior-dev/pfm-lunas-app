@@ -46,6 +46,12 @@ If the task is labeled `chore`, you may proceed **without** an Impact Report or 
 
 Apply the change, verify with lint/build/test, and submit for review.
 
+### Branch & PR Rules
+
+**If you are on `development` or `main`:** commit directly after the code-reviewer agent approves locally. No PR needed.
+
+**If you are on a feature/fix branch:** create a PR targeting `development`. Do not merge — human merge gate stays.
+
 **The scope constraint still applies to chores.** If a chore turns out to require feature-level changes (touching `client/features/`, `server/features/`, or the translation layer), stop and escalate. It's not a chore — it needs the full pipeline.
 
 ---
