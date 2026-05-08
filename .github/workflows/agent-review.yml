@@ -1,0 +1,89 @@
+name: Agent Code Review
+
+# Triggers on PR open and push-to-PR against development or main.
+# Uses anthropics/claude-code-action@v1 for built-in PR review posting.
+#
+# WHY THIS APPROACH:
+# Using anthropics/claude-code-action@v1 rather than raw CLI invocation.
+# The action is actively maintained (last updated May 2026), handles
+# checkout, Claude Code installation, PR context injection, and review
+# comment posting automatically. The alternative — raw CLI with
+# `npx @anthropic-ai/claude-code --agent code-reviewer -p "..."` —
+# would require manual GitHub token plumbing, PR diff extraction, and
+# comment posting via the API (~40 lines of shell scripting). The action
+# abstracts all of that. Note: the action doesn't have a dedicated
+# `agent` input, so the code-reviewer instructions are inlined via
+# `prompt` rather than using `--agent code-reviewer` via `claude_args`.
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [development, main]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            You are the code-reviewer agent for the Lunas project.
+
+            ## Your Task
+
+            Review the PR diff against the COMPLETE checklist in
+            `.claude/skills/code-review/SKILL.md`. Read that file and
+            run all 10 sections:
+
+            1. TypeScript
+            2. Clean Architecture Layers
+            3. Data Fetching & State
+            4. Next.js Conventions
+            5. Components & Styling
+            6. API Routes & Backend
+            7. Security
+            8. AI Integration
+            9. Performance
+            10. Code Quality
+
+            ## Verdict Rules
+
+            - Any Blocker or Major finding → post review as REQUEST CHANGES
+            - All Minor or Nit only → post review as APPROVE
+            - Never auto-merge. Human merge gate always stays.
+
+            ## Output Format
+
+            For each finding:
+            ```
+            **[Blocker|Major|Minor|Nit]** file.ts:L42 — Description
+            Problem: What's wrong
+            Fix: What to do instead
+            ```
+
+            End with a summary:
+            ```
+            ## Review Summary
+            - Blockers: [count]
+            - Major: [count]
+            - Minor: [count]
+            - Nit: [count]
+
+            **Verdict: [APPROVE | REQUEST CHANGES]**
+            ```
+
+            ## Restrictions
+
+            - Do NOT edit any files
+            - Do NOT suggest fixes beyond what the checklist covers
+            - Do NOT auto-merge or bypass the human merge gate
