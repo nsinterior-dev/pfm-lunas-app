@@ -1,0 +1,132 @@
+name: Agent Code Review
+
+# Triggers on PR open and push-to-PR against development or main.
+# Uses Gemini API (free tier) for code review, posts findings as PR comments.
+#
+# WHY THIS APPROACH:
+# Originally used anthropics/claude-code-action@v1, but that requires a paid
+# Anthropic API key. Switched to Gemini API (free tier: 15 RPM, 1M TPM) to
+# avoid CI costs. The trade-off: we lose the action's built-in PR context
+# injection and must handle diff extraction + comment posting ourselves.
+#
+# ALTERNATIVE CONSIDERED:
+# CodeRabbit (free GitHub App for public repos) — zero config but less
+# customizable. We chose Gemini to keep the review checklist aligned with
+# .claude/skills/code-review/SKILL.md and maintain full control.
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [development, main]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gemini review
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python3 << 'PYEOF'
+          import json, subprocess, urllib.request, os
+
+          base = os.environ["BASE_SHA"]
+          head = os.environ["HEAD_SHA"]
+          api_key = os.environ["GEMINI_API_KEY"]
+
+          # Get diff (code files only, truncate to 900k chars)
+          diff = subprocess.run(
+              ["git", "diff", f"{base}...{head}", "--",
+               "*.ts", "*.tsx", "*.js", "*.jsx", "*.json", "*.yml", "*.yaml"],
+              capture_output=True, text=True
+          ).stdout[:900000]
+
+          if not diff.strip():
+              print("No code diff found, skipping review.")
+              with open("/tmp/review-output.txt", "w") as f:
+                  f.write("No code changes to review.\n\n**Verdict: APPROVE**")
+              exit(0)
+
+          # Read checklist
+          checklist = ""
+          try:
+              with open(".claude/skills/code-review/SKILL.md") as f:
+                  checklist = f.read()
+          except FileNotFoundError:
+              checklist = "No checklist found."
+
+          # Build prompt
+          prompt = f"""You are a code reviewer for the Lunas project (Next.js + TypeScript + Tailwind + React Query).
+
+          Review this PR diff against the checklist below.
+
+          CHECKLIST:
+          {checklist}
+
+          DIFF:
+          {diff}
+
+          RULES:
+          - Only comment on actual issues found in the diff
+          - Severity tiers: Blocker, Major, Minor, Nit
+          - Format each finding as: **[Severity]** file:line - Description. Problem: ... Fix: ...
+          - End with a summary: counts per severity + verdict
+          - Verdict: REQUEST CHANGES if any Blocker or Major, APPROVE otherwise
+          - If only docs/config with no code issues, just APPROVE with a brief note
+          - Be concise. No filler."""
+
+          # Call Gemini API
+          url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+          payload = json.dumps({
+              "contents": [{"parts": [{"text": prompt}]}],
+              "generationConfig": {"temperature": 0.1, "maxOutputTokens": 8192}
+          }).encode()
+
+          req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
+          import time
+          review = None
+          for attempt in range(3):
+              try:
+                  with urllib.request.urlopen(req, timeout=120) as resp:
+                      data = json.loads(resp.read())
+                      review = data["candidates"][0]["content"]["parts"][0]["text"]
+                      break
+              except urllib.error.HTTPError as e:
+                  if e.code == 429 and attempt < 2:
+                      wait = 30 * (attempt + 1)
+                      print(f"Rate limited (429), retrying in {wait}s... (attempt {attempt + 1}/3)")
+                      time.sleep(wait)
+                  else:
+                      review = f"Gemini review failed: HTTP {e.code} {e.reason}"
+                      break
+              except Exception as e:
+                  review = f"Gemini review failed: {e}"
+                  break
+          if review is None:
+              review = "Gemini review failed after 3 attempts (rate limited)."
+
+          with open("/tmp/review-output.txt", "w") as f:
+              f.write(review)
+
+          print(review)
+          PYEOF
+
+      - name: Post review comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          REVIEW=$(cat /tmp/review-output.txt)
+          BODY=$(printf '## 🤖 Agent Code Review (Gemini)\n\n%s\n\n---\n*Automated review via Gemini 2.0 Flash against [code-review checklist](.claude/skills/code-review/SKILL.md)*' "$REVIEW")
+          gh pr comment "$PR_NUMBER" --body "$BODY"

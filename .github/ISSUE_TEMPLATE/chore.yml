@@ -1,0 +1,26 @@
+name: Chore
+description: Dependency updates, CI changes, doc tweaks, config changes — no user-facing behavior change.
+labels: ["chore"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What's changing?
+      description: Describe the change.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why?
+      description: What's the reason for this change?
+    validations:
+      required: true
+  - type: textarea
+    id: risk
+    attributes:
+      label: Any risk?
+      description: Could this break anything? If so, what?
+      placeholder: "No risk — config-only change"
+    validations:
+      required: false

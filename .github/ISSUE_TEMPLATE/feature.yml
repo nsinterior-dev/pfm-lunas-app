@@ -1,0 +1,58 @@
+name: Feature Request
+description: New functionality that doesn't exist yet.
+labels: ["feature"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What should this do?
+      description: Describe the feature you'd like.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why is this needed?
+      description: What problem does this solve? Who benefits?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How do we know this is done?
+      placeholder: |
+        - [ ] User can...
+        - [ ] System does...
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Suspected scope
+      description: How big do you think this is? (The planner agent will refine this.)
+      options:
+        - XS (1 file, < 20 lines)
+        - S (1-3 files, single layer)
+        - M (3-10 files, crosses layers)
+        - L (10+ files or 3+ features)
+        - Unknown
+      default: 4
+    validations:
+      required: true
+  - type: input
+    id: lun-ticket
+    attributes:
+      label: Related LUN ticket
+      description: If this relates to a sprint ticket, enter it here.
+      placeholder: "LUN-011"
+    validations:
+      required: false
+  - type: input
+    id: figma
+    attributes:
+      label: Figma link
+      description: If there's a design for this feature, link it here.
+      placeholder: "https://figma.com/design/..."
+    validations:
+      required: false
